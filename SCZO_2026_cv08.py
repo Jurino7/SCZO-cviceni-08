@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt
-from skimage.io import imread 
+from skimage.io import imread
+from skimage.filters import threshold_otsu
 from skimage.color import rgb2gray, rgb2hsv
 from skimage.util import img_as_float
 from skimage.segmentation import watershed
 from scipy.signal import medfilt2d,convolve2d
+from scipy.ndimage import median_filter
 
 
 # Ukol 1: Základy segmentace - prahování
@@ -17,12 +19,11 @@ from scipy.signal import medfilt2d,convolve2d
 # =============================================================================
 plt.close('all')
 
-img_football = ...
-football_segmentation_output = ...
+img_football = imread("data/football.png")
 
-img_football_R = ...
-img_football_G = ...
-img_football_B = ...
+img_football_R = img_football[:, :, 0]
+img_football_G = img_football[:, :, 1]
+img_football_B = img_football[:, :, 2]
 
 plt.figure()
 plt.subplot(2,3,1)
@@ -48,8 +49,9 @@ plt.xlabel('Intensity [-]')
 plt.ylabel('Pixel count [-]')
 plt.show()
 
-threshold = ...
-football_segmentation_output = ...
+select_segmant = img_football_B
+threshold = threshold_otsu(select_segmant)
+football_segmentation_output = (select_segmant > threshold).astype('uint8')
 
 plt.figure()
 plt.subplot(1,2,1)
@@ -77,11 +79,11 @@ plt.show()
 # =============================================================================
 
 plt.close('all')
-img_boulder = ...
+img_boulder = imread("data/Boulder_cropped.png")
 
-img_boulder_R = ...
-img_boulder_G = ...
-img_boulder_B = ...
+img_boulder_R = img_boulder[:, :, 0]
+img_boulder_G = img_boulder[:, :, 1]
+img_boulder_B = img_boulder[:, :, 2]
 
 plt.figure()
 plt.subplot(2,3,1)
@@ -107,9 +109,9 @@ plt.xlabel('Intensity [-]')
 plt.ylabel('Pixel count [-]')
 plt.show()
 
-img_hsv = ...
-selected_channel = ...
-multiplied_selected_channel = ...
+img_hsv = rgb2hsv(img_boulder[:, :, :3])
+selected_channel = img_hsv[:, :, 0]
+multiplied_selected_channel = selected_channel * 360
 
 
 plt.figure()
@@ -151,11 +153,13 @@ plt.hist(multiplied_selected_channel.ravel(), bins = 256, orientation = 'horizon
 plt.ylim((0,359))
 plt.show()
 
-green_grips_threshold = ...
+green_grips_threshold = (90, 150)
 
-green_grips_mask = ...
+green_grips_mask = ((multiplied_selected_channel > green_grips_threshold[0]) &
+                    (multiplied_selected_channel < green_grips_threshold[1]))
 
-segmented_grips = ...
+segmented_grips = np.zeros_like(img_boulder[:, :, :3])
+segmented_grips[green_grips_mask] = img_boulder[:, :, :3][green_grips_mask]
 
 plt.figure()
 plt.subplot(1,3,1)
@@ -179,8 +183,8 @@ plt.show()
 # Aplikujte segmentační metodu rozvodí na tuto parametrickou mapu.
 # Výsledky zobrazte.
 # =============================================================================
-img = ...
-img_filtered = ...
+img = rgb2gray(img_as_float(imread("data/krtek.jpg")))
+img_filtered = median_filter(img, size=5)
 
 plt.figure()
 plt.subplot(1,2,1)
@@ -196,9 +200,10 @@ plt.show()
 sobel_mask_x = np.array([[-1,-2,-1],[0,0,0],[1,2,1]])
 sobel_mask_y = sobel_mask_x.T
 
-gradient_x=...
-gradient_y=...
-gradient_img =...
+gradient_x=convolve2d(img_filtered, sobel_mask_x, mode='same', boundary='symm')
+gradient_y=convolve2d(img_filtered, sobel_mask_y, mode='same', boundary='symm')
+gradient_img = np.sqrt(gradient_x**2 + gradient_y**2)
+gradient_img = gradient_img / gradient_img.max()
 
 plt.figure()
 plt.subplot(2,1,1)
@@ -214,10 +219,10 @@ plt.show()
 
 n_levels = 2**3
 delta_L = 1 / (n_levels - 1)
-img_kvant = ... * ...
+img_kvant = np.round(gradient_img / delta_L) * delta_L
 
 
-img_watershed= ...
+img_watershed= watershed(img_kvant)
 
 plt.figure()
 plt.subplot(1,2,1)
